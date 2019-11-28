@@ -27,6 +27,7 @@ from utils.tracker_config import TrackerConfig
 from utils.config_helper import load_config
 from utils.pyvotkit.region import vot_overlap, vot_float2str
 
+from torch2trt import torch2trt
 thrs = np.arange(0.3, 0.5, 0.05)
 
 parser = argparse.ArgumentParser(description='Test SiamMask')
@@ -152,6 +153,8 @@ def siamese_init(im, target_pos, target_sz, model, hp=None, device='cpu'):
     z_crop = get_subwindow_tracking(im, target_pos, p.exemplar_size, s_z, avg_chans)
 
     z = Variable(z_crop.unsqueeze(0))
+    net.init_trt()
+
     net.template(z.to(device))
 
     if p.windowing == 'cosine':
@@ -198,14 +201,18 @@ def siamese_track(state, im, mask_enable=False, refine_enable=False, device='cpu
     x_crop = Variable(get_subwindow_tracking(im, target_pos, p.instance_size, round(s_x), avg_chans).unsqueeze(0))
 
     if mask_enable:
+        # print(x_crop.to(device).shape)
         score, delta, mask = net.track_mask(x_crop.to(device))
     else:
         score, delta = net.track(x_crop.to(device))
 
+    # print(delta.shape)
     delta = delta.permute(1, 2, 3, 0).contiguous().view(4, -1).data.cpu().numpy()
     score = F.softmax(score.permute(1, 2, 3, 0).contiguous().view(2, -1).permute(1, 0), dim=1).data[:,
             1].cpu().numpy()
 
+    # print(delta.shape)
+    # print(p.anchor.shape)
     delta[0, :] = delta[0, :] * p.anchor[:, 2] + p.anchor[:, 0]
     delta[1, :] = delta[1, :] * p.anchor[:, 3] + p.anchor[:, 1]
     delta[2, :] = np.exp(delta[2, :]) * p.anchor[:, 2]

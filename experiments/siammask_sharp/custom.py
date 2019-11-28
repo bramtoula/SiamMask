@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from utils.load_helper import load_pretrain
 from resnet import resnet50
 
-
+from torch2trt import torch2trt
 class ResDownS(nn.Module):
     def __init__(self, inplane, outplane):
         super(ResDownS, self).__init__()
@@ -39,6 +39,13 @@ class ResDown(MultiStageFeature):
         self.change_point = [0, 0.5]
 
         self.unfix(0.0)
+    
+    def trt(self):
+        x_127 = torch.ones((1,3,127,127)).cuda()
+        x_255 = torch.ones((1,3,255,255)).cuda()
+
+        self.features_127 = torch2trt(self.features,[x_127])
+        self.features_255 = torch2trt(self.features,[x_255])
 
     def param_groups(self, start_lr, feature_mult=1):
         lr = start_lr * feature_mult
@@ -56,13 +63,27 @@ class ResDown(MultiStageFeature):
         return groups
 
     def forward(self, x):
-        output = self.features(x)
+        # print(x.shape)
+        if x.shape[2] == 127:
+            print('127')
+            output = self.features_127(x)
+        elif x.shape[2] == 255:
+            print('255')
+            output = self.features_255(x)
+        else:
+            output = self.features(x)
+
+        # output = self.features(x)
+        # print(output[0].shape)
+
         p3 = self.downsample(output[-1])
         return p3
 
     def forward_all(self, x):
         output = self.features(x)
         p3 = self.downsample(output[-1])
+        # print(p3.shape)
+        # print('\n')
         return output, p3
 
 
@@ -167,10 +188,13 @@ class Custom(SiamMask):
         self.mask_model = MaskCorr()
         self.refine_model = Refine()
 
+    def init_trt(self):
+        self.features.trt()
+
     def refine(self, f, pos=None):
         return self.refine_model(f, pos)
 
-    def template(self, template):
+    def template(self, template):        
         self.zf = self.features(template)
 
     def track(self, search):
@@ -179,6 +203,7 @@ class Custom(SiamMask):
         return rpn_pred_cls, rpn_pred_loc
 
     def track_mask(self, search):
+        # print(search.shape)
         self.feature, self.search = self.features.forward_all(search)
         rpn_pred_cls, rpn_pred_loc = self.rpn(self.zf, self.search)
         self.corr_feature = self.mask_model.mask.forward_corr(self.zf, self.search)

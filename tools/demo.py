@@ -5,7 +5,7 @@
 # --------------------------------------------------------
 import glob
 from tools.test import *
-
+from torch2trt import torch2trt
 parser = argparse.ArgumentParser(description='PyTorch Tracking Demo')
 
 parser.add_argument('--resume', default='', type=str, required=True,
@@ -46,12 +46,13 @@ if __name__ == '__main__':
 
     toc = 0
     for f, im in enumerate(ims):
-        tic = cv2.getTickCount()
+        
         if f == 0:  # init
             target_pos = np.array([x + w / 2, y + h / 2])
             target_sz = np.array([w, h])
             state = siamese_init(im, target_pos, target_sz, siammask, cfg['hp'], device=device)  # init tracker
         elif f > 0:  # tracking
+            tic = cv2.getTickCount()
             state = siamese_track(state, im, mask_enable=True, refine_enable=True, device=device)  # track
             location = state['ploygon'].flatten()
             mask = state['mask'] > state['p'].seg_thr
@@ -63,7 +64,7 @@ if __name__ == '__main__':
             if key > 0:
                 break
 
-        toc += cv2.getTickCount() - tic
+            toc += cv2.getTickCount() - tic
     toc /= cv2.getTickFrequency()
     fps = f / toc
     print('SiamMask Time: {:02.1f}s Speed: {:3.1f}fps (with visulization!)'.format(toc, fps))
