@@ -5,7 +5,6 @@
 # --------------------------------------------------------
 import glob
 from tools.test import *
-from torch2trt import torch2trt
 parser = argparse.ArgumentParser(description='PyTorch Tracking Demo')
 
 parser.add_argument('--resume', default='', type=str, required=True,

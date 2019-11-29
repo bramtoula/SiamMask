@@ -15,9 +15,20 @@ class ResDownS(nn.Module):
         self.downsample = nn.Sequential(
                 nn.Conv2d(inplane, outplane, kernel_size=1, bias=False),
                 nn.BatchNorm2d(outplane))
+        self.downsample_15 = self.downsample_31 = self.downsample
+    def init_trt(self,fp16_mode = False):
+        x_ds_15 = torch.ones((1,1024,15,15)).cuda()
+        x_ds_31 = torch.ones((1,1024,31,31)).cuda()
+        self.downsample_15 = torch2trt(self.downsample,[x_ds_15],fp16_mode=fp16_mode)
+        self.downsample_31 = torch2trt(self.downsample,[x_ds_31],fp16_mode=fp16_mode)
 
     def forward(self, x):
-        x = self.downsample(x)
+        if x.shape[-1] == 15:
+            x = self.downsample_15(x)
+        elif x.shape[-1] == 31:
+            x = self.downsample_31(x)
+        else:
+            x = self.downsample(x)
         if x.size(3) < 20:
             l = 4
             r = -4
@@ -29,6 +40,7 @@ class ResDown(MultiStageFeature):
     def __init__(self, pretrain=False):
         super(ResDown, self).__init__()
         self.features = resnet50(layer3=True, layer4=False)
+        self.features_127 = self.features_255 = self.features
         if pretrain:
             load_pretrain(self.features, 'resnet.model')
 
@@ -40,12 +52,12 @@ class ResDown(MultiStageFeature):
 
         self.unfix(0.0)
     
-    def trt(self):
-        x_127 = torch.ones((1,3,127,127)).cuda()
-        x_255 = torch.ones((1,3,255,255)).cuda()
-
-        self.features_127 = torch2trt(self.features,[x_127])
-        self.features_255 = torch2trt(self.features,[x_255])
+    def init_trt(self,fp16_mode=False):
+        x_resnet_127 = torch.ones((1,3,127,127)).cuda()
+        x_resnet_255 = torch.ones((1,3,255,255)).cuda()
+        self.features_127 = torch2trt(self.features,[x_resnet_127],fp16_mode=fp16_mode)
+        self.features_255 = torch2trt(self.features,[x_resnet_255],fp16_mode=fp16_mode)
+        self.downsample.init_trt(fp16_mode)
 
     def param_groups(self, start_lr, feature_mult=1):
         lr = start_lr * feature_mult
@@ -63,27 +75,13 @@ class ResDown(MultiStageFeature):
         return groups
 
     def forward(self, x):
-        # print(x.shape)
-        if x.shape[2] == 127:
-            print('127')
-            output = self.features_127(x)
-        elif x.shape[2] == 255:
-            print('255')
-            output = self.features_255(x)
-        else:
-            output = self.features(x)
-
-        # output = self.features(x)
-        # print(output[0].shape)
-
+        output = self.features_127(x)
         p3 = self.downsample(output[-1])
         return p3
 
     def forward_all(self, x):
-        output = self.features(x)
+        output = self.features_255(x)
         p3 = self.downsample(output[-1])
-        # print(p3.shape)
-        # print('\n')
         return output, p3
 
 
@@ -106,6 +104,9 @@ class UP(RPN):
         loc = self.loc(z_f, x_f)
         return cls, loc
 
+    def init_trt(self,fp16_mode=False):
+        self.cls.init_trt(fp16_mode)
+        self.loc.init_trt(fp16_mode)
 
 class MaskCorr(Mask):
     def __init__(self, oSz=63):
@@ -116,6 +117,8 @@ class MaskCorr(Mask):
     def forward(self, z, x):
         return self.mask(z, x)
 
+    def init_trt(self,fp16_mode=False):
+        self.mask.init_trt(fp16_mode)
 
 class Refine(nn.Module):
     def __init__(self):
@@ -168,11 +171,34 @@ class Refine(nn.Module):
             p3 = corr_feature.permute(0, 2, 3, 1).contiguous().view(-1, 256, 1, 1)
 
         out = self.deconv(p3)
-        out = self.post0(F.upsample(self.h2(out) + self.v2(p2), size=(31, 31)))
-        out = self.post1(F.upsample(self.h1(out) + self.v1(p1), size=(61, 61)))
-        out = self.post2(F.upsample(self.h0(out) + self.v0(p0), size=(127, 127)))
+        out = self.post0(F.interpolate(self.h2(out) + self.v2(p2), size=(31, 31)))
+        out = self.post1(F.interpolate(self.h1(out) + self.v1(p1), size=(61, 61)))
+        out = self.post2(F.interpolate(self.h0(out) + self.v0(p0), size=(127, 127)))
         out = out.view(-1, 127*127)
         return out
+
+    def init_trt(self,fp16_mode=False):
+        x_deconv = torch.ones((1,256,1,1)).cuda()
+        x_v2 = torch.ones((1,512,15,15)).cuda()
+        x_h2 = torch.ones((1,32,15,15)).cuda()
+        x_post0 = torch.ones((1,32,31,31)).cuda()
+        x_v1 = torch.ones((1,256,31,31)).cuda()
+        x_h1 = torch.ones((1,16,31,31)).cuda()
+        x_post1 = torch.ones((1,16,61,61)).cuda()
+        x_v0 = torch.ones((1,64,61,61)).cuda()
+        x_h0 = torch.ones((1,4,61,61)).cuda()
+        x_post2 = torch.ones((1,4,127,127)).cuda()
+
+        # self.deconv = torch2trt(self.deconv,[x_deconv])
+        self.v2 = torch2trt(self.v2,[x_v2],fp16_mode=fp16_mode)
+        self.h2 = torch2trt(self.h2,[x_h2],fp16_mode=fp16_mode)
+        self.post0 = torch2trt(self.post0,[x_post0],fp16_mode=fp16_mode)
+        self.v1 = torch2trt(self.v1,[x_v1],fp16_mode=fp16_mode)
+        self.h1 = torch2trt(self.h1,[x_h1],fp16_mode=fp16_mode)
+        self.post1 = torch2trt(self.post1,[x_post1],fp16_mode=fp16_mode)
+        self.v0 = torch2trt(self.v0,[x_v0],fp16_mode=fp16_mode)
+        self.h0 = torch2trt(self.h0,[x_h0],fp16_mode=fp16_mode)
+        self.post2 = torch2trt(self.post2,[x_post2],fp16_mode=fp16_mode)
 
     def param_groups(self, start_lr, feature_mult=1):
         params = filter(lambda x:x.requires_grad, self.parameters())
@@ -188,8 +214,11 @@ class Custom(SiamMask):
         self.mask_model = MaskCorr()
         self.refine_model = Refine()
 
-    def init_trt(self):
-        self.features.trt()
+    def init_trt(self,fp16_mode=False):
+        self.features.init_trt(fp16_mode)
+        # self.rpn_model.init_trt(fp16_mode)
+        self.mask_model.init_trt(fp16_mode)
+        self.refine_model.init_trt(fp16_mode)
 
     def refine(self, f, pos=None):
         return self.refine_model(f, pos)
@@ -203,7 +232,6 @@ class Custom(SiamMask):
         return rpn_pred_cls, rpn_pred_loc
 
     def track_mask(self, search):
-        # print(search.shape)
         self.feature, self.search = self.features.forward_all(search)
         rpn_pred_cls, rpn_pred_loc = self.rpn(self.zf, self.search)
         self.corr_feature = self.mask_model.mask.forward_corr(self.zf, self.search)

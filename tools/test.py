@@ -27,7 +27,6 @@ from utils.tracker_config import TrackerConfig
 from utils.config_helper import load_config
 from utils.pyvotkit.region import vot_overlap, vot_float2str
 
-from torch2trt import torch2trt
 thrs = np.arange(0.3, 0.5, 0.05)
 
 parser = argparse.ArgumentParser(description='Test SiamMask')
@@ -153,7 +152,7 @@ def siamese_init(im, target_pos, target_sz, model, hp=None, device='cpu'):
     z_crop = get_subwindow_tracking(im, target_pos, p.exemplar_size, s_z, avg_chans)
 
     z = Variable(z_crop.unsqueeze(0))
-    net.init_trt()
+    net.init_trt(fp16_mode=False)
 
     net.template(z.to(device))
 
