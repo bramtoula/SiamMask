@@ -69,7 +69,7 @@ wget http://www.robots.ox.ac.uk/~qwang/SiamMask_DAVIS.pth
 ```shell
 cd $SiamMask/experiments/siammask_sharp
 export PYTHONPATH=$PWD:$PYTHONPATH
-python ../../tools/demo.py --resume SiamMask_DAVIS.pth --config config_davis.json
+python3 ../../tools/demo.py --resume SiamMask_DAVIS.pth --config config_davis.json
 ```
 
 <div align="center">
