@@ -5,7 +5,7 @@
 # --------------------------------------------------------
 import numpy as np
 import math
-from utils.bbox_helper import center2corner, corner2center
+from utils_siammask.bbox_helper import center2corner, corner2center
 
 
 class Anchors:
