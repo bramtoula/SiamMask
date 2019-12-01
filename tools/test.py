@@ -152,7 +152,6 @@ def siamese_init(im, target_pos, target_sz, model, hp=None, device='cpu'):
     z_crop = get_subwindow_tracking(im, target_pos, p.exemplar_size, s_z, avg_chans)
 
     z = Variable(z_crop.unsqueeze(0))
-    net.init_trt(fp16_mode=False)
 
     net.template(z.to(device))
 
