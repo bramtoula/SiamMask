@@ -4,11 +4,11 @@
 {
     "distutils": {
         "depends": [
-            "src/region.h"
+            "/root/msl_raptor_ws/src/msl_raptor/src/front-end/SiamMask/utils_siammask/pysot/utils/src/region.h"
         ],
         "include_dirs": [
             "src/",
-            "."
+            "/root/msl_raptor_ws/src/msl_raptor/src/front-end/SiamMask/utils_siammask/pysot/utils"
         ],
         "name": "region",
         "sources": [

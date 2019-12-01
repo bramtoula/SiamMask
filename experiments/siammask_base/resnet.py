@@ -4,7 +4,7 @@ from torch.autograd import Variable
 import math
 import torch.utils.model_zoo as model_zoo
 from models.features import Features
-from utils.log_helper import log_once
+from utils_siammask.log_helper import log_once
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',

@@ -10,8 +10,8 @@ import json
 import random
 import logging
 from os.path import join
-from utils.bbox_helper import *
-from utils.anchors import Anchors
+from utils_siammask.bbox_helper import *
+from utils_siammask.anchors import Anchors
 import math
 import sys
 pyv = sys.version[0]

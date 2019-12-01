@@ -5,7 +5,7 @@ from models.mask import Mask
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils.load_helper import load_pretrain
+from utils_siammask.load_helper import load_pretrain
 from resnet import resnet50
 
 from torch2trt import torch2trt
@@ -214,11 +214,15 @@ class Custom(SiamMask):
         self.mask_model = MaskCorr()
         self.refine_model = Refine()
 
-    def init_trt(self,fp16_mode=False):
-        self.features.init_trt(fp16_mode)
-        # self.rpn_model.init_trt(fp16_mode)
-        self.mask_model.init_trt(fp16_mode)
-        self.refine_model.init_trt(fp16_mode)
+    def init_trt(self,fp16_mode=False,features=True,rpn=False,mask=False,refine=False):
+        if features:
+            self.features.init_trt(fp16_mode)
+        if rpn:
+            self.rpn_model.init_trt(fp16_mode)
+        if mask:
+            self.mask_model.init_trt(fp16_mode)
+        if refine:
+            self.refine_model.init_trt(fp16_mode)
 
     def refine(self, f, pos=None):
         return self.refine_model(f, pos)

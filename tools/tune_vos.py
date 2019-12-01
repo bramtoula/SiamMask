@@ -11,15 +11,15 @@ from PIL import Image
 from os import makedirs
 from os.path import isfile, isdir, join
 
-from utils.log_helper import init_log, add_file_handler
-from utils.bbox_helper import cxy_wh_2_rect
-from utils.load_helper import load_pretrain
-from utils.benchmark_helper import load_dataset
-from utils.average_meter_helper import IouMeter
+from utils_siammask.log_helper import init_log, add_file_handler
+from utils_siammask.bbox_helper import cxy_wh_2_rect
+from utils_siammask.load_helper import load_pretrain
+from utils_siammask.benchmark_helper import load_dataset
+from utils_siammask.average_meter_helper import IouMeter
 
 import models as models
 from tools.test import siamese_init, siamese_track
-from utils.config_helper import load_config
+from utils_siammask.config_helper import load_config
 
 thrs = np.arange(0.3, 0.81, 0.05)
 

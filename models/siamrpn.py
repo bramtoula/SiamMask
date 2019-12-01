@@ -6,9 +6,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils.bbox_helper import center2corner
+from utils_siammask.bbox_helper import center2corner
 from torch.autograd import Variable
-from utils.anchors import Anchors
+from utils_siammask.anchors import Anchors
 
 
 class SiamRPN(nn.Module):

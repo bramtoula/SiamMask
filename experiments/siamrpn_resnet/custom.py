@@ -2,7 +2,7 @@ from models.siamrpn import SiamRPN
 from models.features import MultiStageFeature
 from models.rpn import RPN, DepthCorr
 import torch.nn as nn
-from utils.load_helper import load_pretrain
+from utils_siammask.load_helper import load_pretrain
 from resnet import resnet50
 
 

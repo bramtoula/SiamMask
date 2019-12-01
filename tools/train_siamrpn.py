@@ -11,18 +11,18 @@ import time
 import torch
 from torch.utils.data import DataLoader
 
-from utils.log_helper import init_log, print_speed, add_file_handler, Dummy
-from utils.load_helper import load_pretrain, restore_from
-from utils.average_meter_helper import AverageMeter
+from utils_siammask.log_helper import init_log, print_speed, add_file_handler, Dummy
+from utils_siammask.load_helper import load_pretrain, restore_from
+from utils_siammask.average_meter_helper import AverageMeter
 
 from datasets.siam_rpn_dataset import DataSets
 import models as models
 import math
 
-from utils.lr_helper import build_lr_scheduler
+from utils_siammask.lr_helper import build_lr_scheduler
 from tensorboardX import SummaryWriter
 
-from utils.config_helper import load_config
+from utils_siammask.config_helper import load_config
 import json
 import cv2
 from torch.utils.collect_env import get_pretty_env_info

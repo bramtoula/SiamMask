@@ -4,7 +4,7 @@ from models.rpn import RPN, DepthCorr
 from models.mask import Mask
 import torch
 import torch.nn as nn
-from utils.load_helper import load_pretrain
+from utils_siammask.load_helper import load_pretrain
 from resnet import resnet50
 
 
