@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from utils_siammask.load_helper import load_pretrain
 from resnet import resnet50
 
-from torch2trt import torch2trt
+from torch2trt import torch2trt, TRTModule
 class ResDownS(nn.Module):
     def __init__(self, inplane, outplane):
         super(ResDownS, self).__init__()
@@ -16,11 +16,17 @@ class ResDownS(nn.Module):
                 nn.Conv2d(inplane, outplane, kernel_size=1, bias=False),
                 nn.BatchNorm2d(outplane))
         self.downsample_15 = self.downsample_31 = self.downsample
-    def init_trt(self,fp16_mode = False):
-        x_ds_15 = torch.ones((1,1024,15,15)).cuda()
-        x_ds_31 = torch.ones((1,1024,31,31)).cuda()
-        self.downsample_15 = torch2trt(self.downsample,[x_ds_15],fp16_mode=fp16_mode)
-        self.downsample_31 = torch2trt(self.downsample,[x_ds_31],fp16_mode=fp16_mode)
+    def init_trt(self,fp16_mode,use_loaded_weights,trt_weights_path):
+        if not use_loaded_weights:
+            x_ds_15 = torch.ones((1,1024,15,15)).cuda()
+            x_ds_31 = torch.ones((1,1024,31,31)).cuda()
+            self.downsample_15 = torch2trt(self.downsample,[x_ds_15],fp16_mode=fp16_mode)
+            self.downsample_31 = torch2trt(self.downsample,[x_ds_31],fp16_mode=fp16_mode)
+        else:
+            self.downsample_15 = TRTModule()
+            self.downsample_15.load_state_dict(torch.load(trt_weights_path+'/downsample_15_trt.pth'))
+            self.downsample_31 = TRTModule()
+            self.downsample_31.load_state_dict(torch.load(trt_weights_path+'/downsample_31_trt.pth'))
 
     def forward(self, x):
         if x.shape[-1] == 15:
@@ -52,12 +58,19 @@ class ResDown(MultiStageFeature):
 
         self.unfix(0.0)
     
-    def init_trt(self,fp16_mode=False):
-        x_resnet_127 = torch.ones((1,3,127,127)).cuda()
-        x_resnet_255 = torch.ones((1,3,255,255)).cuda()
-        self.features_127 = torch2trt(self.features,[x_resnet_127],fp16_mode=fp16_mode)
-        self.features_255 = torch2trt(self.features,[x_resnet_255],fp16_mode=fp16_mode)
-        self.downsample.init_trt(fp16_mode)
+    def init_trt(self,fp16_mode,use_loaded_weights,trt_weights_path):
+        if not use_loaded_weights:
+            x_resnet_127 = torch.ones((1,3,127,127)).cuda()
+            x_resnet_255 = torch.ones((1,3,255,255)).cuda()
+            self.features_127 = torch2trt(self.features,[x_resnet_127],fp16_mode=fp16_mode)
+            self.features_255 = torch2trt(self.features,[x_resnet_255],fp16_mode=fp16_mode)
+        else:
+            self.features_127 = TRTModule()
+            self.features_255 = TRTModule()
+            self.features_127.load_state_dict(torch.load(trt_weights_path+'/features_127_trt.pth'))
+            self.features_255.load_state_dict(torch.load(trt_weights_path+'/features_255_trt.pth'))
+
+        self.downsample.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
 
     def param_groups(self, start_lr, feature_mult=1):
         lr = start_lr * feature_mult
@@ -104,9 +117,9 @@ class UP(RPN):
         loc = self.loc(z_f, x_f)
         return cls, loc
 
-    def init_trt(self,fp16_mode=False):
-        self.cls.init_trt(fp16_mode)
-        self.loc.init_trt(fp16_mode)
+    def init_trt(self,fp16_mode,use_loaded_weights,trt_weights_path):
+        self.cls.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
+        self.loc.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
 
 class MaskCorr(Mask):
     def __init__(self, oSz=63):
@@ -117,8 +130,8 @@ class MaskCorr(Mask):
     def forward(self, z, x):
         return self.mask(z, x)
 
-    def init_trt(self,fp16_mode=False):
-        self.mask.init_trt(fp16_mode)
+    def init_trt(self,fp16_mode,use_loaded_weights,trt_weights_path):
+        self.mask.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
 
 class Refine(nn.Module):
     def __init__(self):
@@ -177,28 +190,49 @@ class Refine(nn.Module):
         out = out.view(-1, 127*127)
         return out
 
-    def init_trt(self,fp16_mode=False):
-        x_deconv = torch.ones((1,256,1,1)).cuda()
-        x_v2 = torch.ones((1,512,15,15)).cuda()
-        x_h2 = torch.ones((1,32,15,15)).cuda()
-        x_post0 = torch.ones((1,32,31,31)).cuda()
-        x_v1 = torch.ones((1,256,31,31)).cuda()
-        x_h1 = torch.ones((1,16,31,31)).cuda()
-        x_post1 = torch.ones((1,16,61,61)).cuda()
-        x_v0 = torch.ones((1,64,61,61)).cuda()
-        x_h0 = torch.ones((1,4,61,61)).cuda()
-        x_post2 = torch.ones((1,4,127,127)).cuda()
+    def init_trt(self,fp16_mode,use_loaded_weights,trt_weights_path):
+        if not use_loaded_weights:
+            x_deconv = torch.ones((1,256,1,1)).cuda()
+            x_v2 = torch.ones((1,512,15,15)).cuda()
+            x_h2 = torch.ones((1,32,15,15)).cuda()
+            x_post0 = torch.ones((1,32,31,31)).cuda()
+            x_v1 = torch.ones((1,256,31,31)).cuda()
+            x_h1 = torch.ones((1,16,31,31)).cuda()
+            x_post1 = torch.ones((1,16,61,61)).cuda()
+            x_v0 = torch.ones((1,64,61,61)).cuda()
+            x_h0 = torch.ones((1,4,61,61)).cuda()
+            x_post2 = torch.ones((1,4,127,127)).cuda()
 
-        # self.deconv = torch2trt(self.deconv,[x_deconv])
-        self.v2 = torch2trt(self.v2,[x_v2],fp16_mode=fp16_mode)
-        self.h2 = torch2trt(self.h2,[x_h2],fp16_mode=fp16_mode)
-        self.post0 = torch2trt(self.post0,[x_post0],fp16_mode=fp16_mode)
-        self.v1 = torch2trt(self.v1,[x_v1],fp16_mode=fp16_mode)
-        self.h1 = torch2trt(self.h1,[x_h1],fp16_mode=fp16_mode)
-        self.post1 = torch2trt(self.post1,[x_post1],fp16_mode=fp16_mode)
-        self.v0 = torch2trt(self.v0,[x_v0],fp16_mode=fp16_mode)
-        self.h0 = torch2trt(self.h0,[x_h0],fp16_mode=fp16_mode)
-        self.post2 = torch2trt(self.post2,[x_post2],fp16_mode=fp16_mode)
+            # self.deconv = torch2trt(self.deconv,[x_deconv])
+            self.v2 = torch2trt(self.v2,[x_v2],fp16_mode=fp16_mode)
+            self.h2 = torch2trt(self.h2,[x_h2],fp16_mode=fp16_mode)
+            self.post0 = torch2trt(self.post0,[x_post0],fp16_mode=fp16_mode)
+            self.v1 = torch2trt(self.v1,[x_v1],fp16_mode=fp16_mode)
+            self.h1 = torch2trt(self.h1,[x_h1],fp16_mode=fp16_mode)
+            self.post1 = torch2trt(self.post1,[x_post1],fp16_mode=fp16_mode)
+            self.v0 = torch2trt(self.v0,[x_v0],fp16_mode=fp16_mode)
+            self.h0 = torch2trt(self.h0,[x_h0],fp16_mode=fp16_mode)
+            self.post2 = torch2trt(self.post2,[x_post2],fp16_mode=fp16_mode)
+        else:
+            self.v2 = TRTModule()
+            self.h2 = TRTModule()
+            self.post0 = TRTModule()
+            self.v1 = TRTModule()
+            self.h1 = TRTModule()
+            self.post1 = TRTModule()
+            self.v0 = TRTModule()
+            self.h0 = TRTModule()
+            self.post2 = TRTModule()
+
+            self.v2.load_state_dict(torch.load(trt_weights_path+'/v2_trt.pth'))
+            self.h2.load_state_dict(torch.load(trt_weights_path+'/h2_trt.pth'))
+            self.post0.load_state_dict(torch.load(trt_weights_path+'/post0_trt.pth'))
+            self.v1.load_state_dict(torch.load(trt_weights_path+'/v1_trt.pth'))
+            self.h1.load_state_dict(torch.load(trt_weights_path+'/h1_trt.pth'))
+            self.post1.load_state_dict(torch.load(trt_weights_path+'/post1_trt.pth'))
+            self.v0.load_state_dict(torch.load(trt_weights_path+'/v0_trt.pth'))
+            self.h0.load_state_dict(torch.load(trt_weights_path+'/h0_trt.pth'))
+            self.post2.load_state_dict(torch.load(trt_weights_path+'/post2_trt.pth'))
 
     def param_groups(self, start_lr, feature_mult=1):
         params = filter(lambda x:x.requires_grad, self.parameters())
@@ -214,15 +248,15 @@ class Custom(SiamMask):
         self.mask_model = MaskCorr()
         self.refine_model = Refine()
 
-    def init_trt(self,fp16_mode=False,features=True,rpn=False,mask=False,refine=False):
+    def init_trt(self,fp16_mode=False,features=True,rpn=False,mask=False,refine=False, use_loaded_weights=True, trt_weights_path='/root/msl_raptor_ws/src/msl_raptor/src/front_end/SiamMask/weights_trt'):
         if features:
-            self.features.init_trt(fp16_mode)
+            self.features.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
         if rpn:
-            self.rpn_model.init_trt(fp16_mode)
+            self.rpn_model.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
         if mask:
-            self.mask_model.init_trt(fp16_mode)
+            self.mask_model.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
         if refine:
-            self.refine_model.init_trt(fp16_mode)
+            self.refine_model.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
 
     def refine(self, f, pos=None):
         return self.refine_model(f, pos)

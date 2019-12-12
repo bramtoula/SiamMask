@@ -5,7 +5,7 @@
 # --------------------------------------------------------
 import torch.nn as nn
 import torch.nn.functional as F
-from torch2trt import torch2trt
+from torch2trt import torch2trt,TRTModule
 import torch
 class RPN(nn.Module):
     def __init__(self):
@@ -74,11 +74,19 @@ class DepthCorr(nn.Module):
         out = self.head(feature)
         return out
 
-    def init_trt(self,fp16_mode = False):
-        x_kernel = torch.ones((1,256,7,7)).cuda()
-        x_input = torch.ones((1,256,31,31)).cuda()
-        x_feature = torch.ones((1,256,25,25)).cuda()
-        self.conv_kernel = torch2trt(self.conv_kernel,[x_kernel],fp16_mode=fp16_mode)
-        self.conv_search = torch2trt(self.conv_search,[x_input],fp16_mode=fp16_mode)
-        self.head = torch2trt(self.head,[x_feature],fp16_mode=fp16_mode)
+    def init_trt(self,fp16_mode,use_loaded_weights,trt_weights_path):
+        if not use_loaded_weights:
+            x_kernel = torch.ones((1,256,7,7)).cuda()
+            x_input = torch.ones((1,256,31,31)).cuda()
+            x_feature = torch.ones((1,256,25,25)).cuda()
+            self.conv_kernel = torch2trt(self.conv_kernel,[x_kernel],fp16_mode=fp16_mode)
+            self.conv_search = torch2trt(self.conv_search,[x_input],fp16_mode=fp16_mode)
+            self.head = torch2trt(self.head,[x_feature],fp16_mode=fp16_mode)
+        else:
+            self.conv_kernel = TRTModule()
+            self.conv_search = TRTModule()
+            self.head = TRTModule()
 
+            self.conv_kernel.load_state_dict(torch.load(trt_weights_path+'/conv_kernel_trt.pth'))
+            self.conv_search.load_state_dict(torch.load(trt_weights_path+'/conv_search_trt.pth'))
+            self.head.load_state_dict(torch.load(trt_weights_path+'/head_trt.pth'))
