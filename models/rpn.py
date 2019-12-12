@@ -79,6 +79,8 @@ class DepthCorr(nn.Module):
         x_input = torch.ones((1,256,31,31)).cuda()
         x_feature = torch.ones((1,256,25,25)).cuda()
         self.conv_kernel = torch2trt(self.conv_kernel,[x_kernel],fp16_mode=fp16_mode)
+        torch.save(self.conv_kernel.state_dict(),'conv_kernel_trt.pth')
         self.conv_search = torch2trt(self.conv_search,[x_input],fp16_mode=fp16_mode)
+        torch.save(self.conv_search.state_dict(),'conv_search_trt.pth')
         self.head = torch2trt(self.head,[x_feature],fp16_mode=fp16_mode)
-
+        torch.save(self.head.state_dict(),'head_trt.pth')

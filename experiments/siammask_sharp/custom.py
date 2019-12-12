@@ -20,7 +20,10 @@ class ResDownS(nn.Module):
         x_ds_15 = torch.ones((1,1024,15,15)).cuda()
         x_ds_31 = torch.ones((1,1024,31,31)).cuda()
         self.downsample_15 = torch2trt(self.downsample,[x_ds_15],fp16_mode=fp16_mode)
+        torch.save(self.downsample_15.state_dict(), 'downsample_15_trt.pth')
         self.downsample_31 = torch2trt(self.downsample,[x_ds_31],fp16_mode=fp16_mode)
+        torch.save(self.downsample_31.state_dict(), 'downsample_31_trt.pth')
+
 
     def forward(self, x):
         if x.shape[-1] == 15:
@@ -56,7 +59,10 @@ class ResDown(MultiStageFeature):
         x_resnet_127 = torch.ones((1,3,127,127)).cuda()
         x_resnet_255 = torch.ones((1,3,255,255)).cuda()
         self.features_127 = torch2trt(self.features,[x_resnet_127],fp16_mode=fp16_mode)
+        torch.save(self.features_127.state_dict(), 'features_127_trt.pth')
         self.features_255 = torch2trt(self.features,[x_resnet_255],fp16_mode=fp16_mode)
+        torch.save(self.features_255.state_dict(), 'features_255_trt.pth')
+
         self.downsample.init_trt(fp16_mode)
 
     def param_groups(self, start_lr, feature_mult=1):
@@ -191,14 +197,31 @@ class Refine(nn.Module):
 
         # self.deconv = torch2trt(self.deconv,[x_deconv])
         self.v2 = torch2trt(self.v2,[x_v2],fp16_mode=fp16_mode)
+        torch.save(self.v2.state_dict(), 'v2_trt.pth')
+
         self.h2 = torch2trt(self.h2,[x_h2],fp16_mode=fp16_mode)
+        torch.save(self.h2.state_dict(), 'h2_trt.pth')
+
         self.post0 = torch2trt(self.post0,[x_post0],fp16_mode=fp16_mode)
+        torch.save(self.post0.state_dict(), 'post0_trt.pth')
+
         self.v1 = torch2trt(self.v1,[x_v1],fp16_mode=fp16_mode)
+        torch.save(self.v1.state_dict(), 'v1_trt.pth')
+
         self.h1 = torch2trt(self.h1,[x_h1],fp16_mode=fp16_mode)
+        torch.save(self.h1.state_dict(), 'h1_trt.pth')
+
         self.post1 = torch2trt(self.post1,[x_post1],fp16_mode=fp16_mode)
+        torch.save(self.post1.state_dict(), 'post1_trt.pth')
+
         self.v0 = torch2trt(self.v0,[x_v0],fp16_mode=fp16_mode)
+        torch.save(self.v0.state_dict(), 'v0_trt.pth')
+
         self.h0 = torch2trt(self.h0,[x_h0],fp16_mode=fp16_mode)
+        torch.save(self.h0.state_dict(), 'h0_trt.pth')
+
         self.post2 = torch2trt(self.post2,[x_post2],fp16_mode=fp16_mode)
+        torch.save(self.post2.state_dict(), 'post2_trt.pth')
 
     def param_groups(self, start_lr, feature_mult=1):
         params = filter(lambda x:x.requires_grad, self.parameters())
