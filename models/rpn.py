@@ -5,7 +5,11 @@
 # --------------------------------------------------------
 import torch.nn as nn
 import torch.nn.functional as F
-from torch2trt import torch2trt,TRTModule
+try:
+    from torch2trt import torch2trt, TRTModule
+except ImportError:
+    print("Torch2trt not found")
+    pass
 import torch
 class RPN(nn.Module):
     def __init__(self):

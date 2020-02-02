@@ -7,8 +7,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from utils_siammask.load_helper import load_pretrain
 from resnet import resnet50
+import sys
 
-from torch2trt import torch2trt, TRTModule
+try:
+    from torch2trt import torch2trt, TRTModule
+except ImportError:
+    print("Torch2trt not found")
+    pass
+
 class ResDownS(nn.Module):
     def __init__(self, inplane, outplane):
         super(ResDownS, self).__init__()
@@ -249,6 +255,11 @@ class Custom(SiamMask):
         self.refine_model = Refine()
 
     def init_trt(self,fp16_mode=False,features=True,rpn=False,mask=False,refine=False, use_loaded_weights=True, trt_weights_path='/root/msl_raptor_ws/src/msl_raptor/src/front_end/SiamMask/weights_trt'):
+        
+        modulename = 'torch2trt'
+        if modulename not in sys.modules:
+            print('torch2trt not found, trt not used')
+            return
         if features:
             self.features.init_trt(fp16_mode,use_loaded_weights,trt_weights_path)
         if rpn:
