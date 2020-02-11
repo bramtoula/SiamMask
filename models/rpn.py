@@ -5,6 +5,7 @@
 # --------------------------------------------------------
 import torch.nn as nn
 import torch.nn.functional as F
+from os import path
 try:
     from torch2trt import torch2trt, TRTModule
 except ImportError:
@@ -78,14 +79,17 @@ class DepthCorr(nn.Module):
         out = self.head(feature)
         return out
 
-    def init_trt(self,fp16_mode,use_loaded_weights,trt_weights_path):
-        if not use_loaded_weights:
+    def init_trt(self,fp16_mode,trt_weights_path):
+        if not path.exists(trt_weights_path+'/conv_kernel_trt.pth'):
             x_kernel = torch.ones((1,256,7,7)).cuda()
             x_input = torch.ones((1,256,31,31)).cuda()
             x_feature = torch.ones((1,256,25,25)).cuda()
             self.conv_kernel = torch2trt(self.conv_kernel,[x_kernel],fp16_mode=fp16_mode)
             self.conv_search = torch2trt(self.conv_search,[x_input],fp16_mode=fp16_mode)
             self.head = torch2trt(self.head,[x_feature],fp16_mode=fp16_mode)
+            torch.save(self.conv_kernel.state_dict(), trt_weights_path+'/conv_kernel_trt.pth')
+            torch.save(self.conv_search.state_dict(), trt_weights_path+'/conv_search_trt.pth')
+            torch.save(self.head.state_dict(), trt_weights_path+'/head_trt.pth')
         else:
             self.conv_kernel = TRTModule()
             self.conv_search = TRTModule()
